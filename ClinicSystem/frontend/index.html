@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MediFlow Clinic System</title>
+    <style>
+        :root {
+            --primary: #2563eb;
+            --primary-dark: #1e40af;
+            --bg: #0f172a;
+            --card-bg: #1e293b;
+            --text: #f8fafc;
+            --text-muted: #94a3b8;
+            --danger: #ef4444;
+            --success: #22c55e;
+            --warning: #f59e0b;
+        }
+
+        body {
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+
+        /* Login Screen */
+        #login-screen, #doctor-select-screen {
+            display: none; /* Toggled via JS */
+            flex: 1;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+
+        .auth-card {
+            background: var(--card-bg);
+            padding: 2.5rem;
+            border-radius: 1rem;
+            width: 100%;
+            max-width: 400px;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
+            animation: fadeIn 0.5s ease-out;
+        }
+
+        .auth-card h2 { margin-top: 0; text-align: center; color: var(--primary); }
+        
+        input, select, button {
+            width: 100%;
+            padding: 0.75rem;
+            margin-bottom: 1rem;
+            border-radius: 0.5rem;
+            border: 1px solid #334155;
+            background: #334155;
+            color: white;
+            font-size: 1rem;
+            box-sizing: border-box;
+        }
+
+        button {
+            background: var(--primary);
+            border: none;
+            cursor: pointer;
+            font-weight: 600;
+            transition: background 0.2s;
+        }
+
+        button:hover { background: var(--primary-dark); }
+        button.secondary { background: #475569; }
+
+        /* Dashboard */
+        #dashboard { display: none; padding: 2rem; }
+        
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+            border-bottom: 1px solid #334155;
+            padding-bottom: 1rem;
+        }
+
+        .week-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 1rem;
+            overflow-x: auto;
+        }
+
+        .day-column {
+            background: var(--card-bg);
+            border-radius: 0.75rem;
+            min-height: 500px;
+            padding: 1rem;
+            position: relative;
+        }
+
+        .day-header {
+            text-align: center;
+            font-weight: bold;
+            margin-bottom: 1rem;
+            color: var(--primary);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .event-card {
+            background: #334155;
+            padding: 0.75rem;
+            border-radius: 0.5rem;
+            margin-bottom: 0.75rem;
+            border-left: 4px solid var(--primary);
+            cursor: pointer;
+            transition: transform 0.2s, background 0.2s;
+            position: relative;
+        }
+
+        .event-card:hover { transform: translateY(-2px); background: #475569; }
+        .event-card.collision { border-left-color: var(--danger); border: 1px solid var(--danger); animation: pulse 2s infinite; }
+        .event-card.type-1 { border-left-color: var(--warning); } /* Lunch */
+
+        .time-badge {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            display: block;
+            margin-bottom: 0.25rem;
+        }
+
+        /* Modal */
+        .modal-overlay {
+            position: fixed; inset: 0;
+            background: rgba(0,0,0,0.7);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        .modal {
+            background: var(--card-bg);
+            padding: 2rem;
+            border-radius: 1rem;
+            width: 90%;
+            max-width: 500px;
+        }
+
+        .active-view { display: flex !important; }
+        .block-view { display: block !important; }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); } 70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); } 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); } }
+    </style>
+</head>
+<body>
+
+    <!-- 1. Doctor List Screen -->
+    <div id="doctor-select-screen" class="active-view">
+        <div class="auth-card">
+            <h2>Select Doctor</h2>
+            <div id="doctor-list" style="margin-bottom: 1rem;">
+                <!-- Doctor Buttons injected here -->
+            </div>
+            <button class="secondary" onclick="showRegister()">Register New Doctor</button>
+        </div>
+    </div>
+
+    <!-- 2. Login/Passkey Screen -->
+    <div id="login-screen">
+        <div class="auth-card">
+            <h2 id="login-title">Login</h2>
+            <input type="password" id="passkey-input" placeholder="Enter Passkey">
+            <button onclick="attemptLogin()">Enter Clinic</button>
+            <button class="secondary" onclick="showDoctorSelect()" style="margin-top: 0.5rem;">Back</button>
+        </div>
+    </div>
+
+    <!-- 3. Dashboard -->
+    <div id="dashboard">
+        <header>
+            <div>
+                <h1 style="margin:0;">MediFlow Schedule</h1>
+                <small style="color: var(--text-muted);" id="doctor-name-display"></small>
+            </div>
+            <div>
+                <button class="secondary" onclick="logout()">Logout</button>
+            </div>
+        </header>
+
+        <div style="margin-bottom: 1rem; display: flex; gap: 1rem;">
+            <button onclick="openAddEventModal()" style="width: auto;">+ New Appointment</button>
+            <button onclick="refreshSchedule()" class="secondary" style="width: auto;">Refresh</button>
+        </div>
+
+        <div class="week-grid" id="week-grid">
+            <!-- 7 Columns -->
+        </div>
+    </div>
+
+    <!-- Add Event Modal -->
+    <div class="modal-overlay" id="add-modal">
+        <div class="modal">
+            <h3>Schedule Event</h3>
+            <select id="event-patient">
+                <!-- Patients -->
+            </select>
+            <select id="event-day">
+                <option value="0">Monday</option>
+                <option value="1">Tuesday</option>
+                <option value="2">Wednesday</option>
+                <option value="3">Thursday</option>
+                <option value="4">Friday</option>
+                <option value="5">Saturday</option>
+                <option value="6">Sunday</option>
+            </select>
+            <input type="number" id="event-start" placeholder="Start Time (Minutes 0-1440, e.g 540 = 9AM)">
+            <input type="number" id="event-dur" placeholder="Duration (Minutes)" value="30">
+            <select id="event-type">
+                <option value="0">Patient Visit</option>
+                <option value="1">Lunch</option>
+                <option value="2">Breakfast</option>
+                <option value="4">Other</option>
+            </select>
+            <button onclick="submitEvent()">Book Slot</button>
+            <button class="secondary" onclick="closeModal('add-modal')">Cancel</button>
+        </div>
+    </div>
+
+     <!-- Extend Modal -->
+     <div class="modal-overlay" id="extend-modal">
+        <div class="modal">
+            <h3>Modify Appointment</h3>
+            <p>Reschedule or Extend. Extending will automatically shift subsequent appointments.</p>
+            <input type="hidden" id="extend-id">
+            <input type="hidden" id="extend-day">
+            <input type="number" id="extend-amt" placeholder="Add minutes (e.g. 15)">
+            <button onclick="submitExtend()">Extend & Cascade</button>
+            <button class="secondary" onclick="closeModal('extend-modal')">Cancel</button>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:8080';
+        let currentDoc = null;
+        const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+        // Init
+        window.addEventListener('load', () => {
+            fetchDoctors();
+            fetchPatients();
+        });
+
+        async function fetchDoctors() {
+            try {
+                const res = await fetch(`${API_URL}/doctors`);
+                const docs = await res.json();
+                const list = document.getElementById('doctor-list');
+                list.innerHTML = '';
+                if(docs.length === 0) {
+                    list.innerHTML = '<p style="text-align:center;">No doctors found. Please register.</p>';
+                }
+                docs.forEach(d => {
+                    const btn = document.createElement('button');
+                    btn.textContent = d.name;
+                    btn.onclick = () => selectDoctor(d.name);
+                    btn.style.marginBottom = '0.5rem';
+                    list.appendChild(btn);
+                });
+            } catch(e) {
+                console.error(e);
+                alert("Backend not reachable. Ensure server.exe is running on port 8080.");
+            }
+        }
+
+        async function fetchPatients() {
+            const res = await fetch(`${API_URL}/patients`);
+            const pats = await res.json();
+            const sel = document.getElementById('event-patient');
+            sel.innerHTML = '';
+            pats.forEach(p => {
+                const opt = document.createElement('option');
+                opt.value = p;
+                opt.textContent = p;
+                sel.appendChild(opt);
+            });
+             // Add event names manually
+             ['Team Meeting', 'Surgery', 'Consultation'].forEach(e => { // Novelty: Custom events
+                const opt = document.createElement('option');
+                opt.value = e;
+                opt.textContent = "[Event] " + e;
+                sel.appendChild(opt);
+             });
+        }
+
+        function selectDoctor(name) {
+            currentDoc = name;
+            document.getElementById('doctor-select-screen').classList.remove('active-view');
+            document.getElementById('login-screen').classList.add('active-view');
+            document.getElementById('login-title').textContent = `Login: ${name}`;
+        }
+
+        function showDoctorSelect() {
+            document.getElementById('login-screen').classList.remove('active-view');
+            document.getElementById('doctor-select-screen').classList.add('active-view');
+        }
+
+        function showRegister() {
+             const name = prompt("Enter Doctor Name:");
+             if(!name) return;
+             const pass = prompt("Set Passkey:");
+             fetch(`${API_URL}/register`, {
+                 method: 'POST',
+                 body: `name=${name}&passkey=${pass}`
+             }).then(() => fetchDoctors());
+        }
+
+        async function attemptLogin() {
+            const pass = document.getElementById('passkey-input').value;
+            const res = await fetch(`${API_URL}/login`, {
+                method: 'POST',
+                body: `name=${currentDoc}&passkey=${pass}`
+            });
+            
+            if(res.ok) {
+                document.getElementById('login-screen').classList.remove('active-view');
+                document.getElementById('dashboard').classList.add('block-view');
+                document.getElementById('doctor-name-display').textContent = currentDoc;
+                loadSchedule();
+            } else {
+                alert("Invalid Passkey");
+            }
+        }
+
+        async function loadSchedule() {
+            const res = await fetch(`${API_URL}/schedule?doctor=${currentDoc}`);
+            const week = await res.json();
+            renderGrid(week);
+        }
+
+        function renderGrid(weekData) {
+            const grid = document.getElementById('week-grid');
+            grid.innerHTML = '';
+            
+            weekData.forEach((dayData, idx) => {
+                const col = document.createElement('div');
+                col.className = 'day-column';
+                
+                const header = document.createElement('div');
+                header.className = 'day-header';
+                header.textContent = DAYS[idx];
+                col.appendChild(header);
+
+                dayData.events.forEach(ev => {
+                    const card = document.createElement('div');
+                    card.className = `event-card type-${ev.type} ${ev.collision ? 'collision' : ''}`;
+                    card.innerHTML = `
+                        <span class="time-badge">${ev.start} - ${ev.end}</span>
+                        <strong>${ev.name}</strong>
+                    `;
+                    card.onclick = () => openExtendModal(ev.id, idx);
+                    col.appendChild(card);
+                });
+                
+                grid.appendChild(col);
+            });
+        }
+
+        function openAddEventModal() {
+            document.getElementById('add-modal').style.display = 'flex';
+        }
+        
+        function closeModal(id) {
+            document.getElementById(id).style.display = 'none';
+        }
+
+        async function submitEvent() {
+            const p = document.getElementById('event-patient').value;
+            const d = document.getElementById('event-day').value;
+            const s = document.getElementById('event-start').value;
+            const dur = document.getElementById('event-dur').value;
+            const t = document.getElementById('event-type').value;
+
+            const res = await fetch(`${API_URL}/add_event`, {
+                method: 'POST',
+                body: `doctor=${currentDoc}&name=${p}&day=${d}&start=${s}&duration=${dur}&type=${t}`
+            });
+
+            if(res.ok) {
+                closeModal('add-modal');
+                loadSchedule();
+            } else if(res.status === 409) {
+                const data = await res.json();
+                let txt = "Collision detected!";
+                if(data.suggestion !== -1) {
+                    txt += `\nSuggestion: Try starting at ${data.suggestion} minutes (approx ${(data.suggestion/60).toFixed(1)}h)`;
+                } else {
+                    txt += "\nNo suitable alternate slots found today.";
+                }
+                const accept = confirm(txt + "\n\nAccept suggestion?");
+                if(accept && data.suggestion !== -1) {
+                    document.getElementById('event-start').value = data.suggestion;
+                    submitEvent(); // Recurring call
+                }
+            } else {
+                alert("Error adding event (Limit Reached?)");
+            }
+        }
+
+        function openExtendModal(id, day) {
+            document.getElementById('extend-id').value = id;
+            document.getElementById('extend-day').value = day;
+            document.getElementById('extend-modal').style.display = 'flex';
+        }
+
+        async function submitExtend() {
+            const id = document.getElementById('extend-id').value;
+            const day = document.getElementById('extend-day').value;
+            const ext = document.getElementById('extend-amt').value;
+            
+            await fetch(`${API_URL}/extend`, {
+                method: 'POST',
+                body: `doctor=${currentDoc}&day=${day}&id=${id}&extra=${ext}`
+            });
+            
+            closeModal('extend-modal');
+            loadSchedule();
+        }
+
+        function logout() {
+            location.reload();
+        }
+
+        function refreshSchedule() {
+            loadSchedule();
+        }
+    </script>
+</body>
+</html>
